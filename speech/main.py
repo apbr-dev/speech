@@ -16,8 +16,8 @@ model = model.to(device)
 SAMPLE_RATE = 16000
 
 
-@app.post("/transcribe", response_class=FileResponse)
-async def transcribe_audio(audio_file: UploadFile = File(...)) -> FileResponse:
+@app.post("/translate", response_class=FileResponse)
+async def translate_audio(audio_file: UploadFile = File(...)) -> FileResponse:
     # Save the uploaded audio file
     with open("temp_audio.wav", "wb") as f:
         f.write(await audio_file.read())
@@ -37,7 +37,7 @@ async def transcribe_audio(audio_file: UploadFile = File(...)) -> FileResponse:
         rate=SAMPLE_RATE,
         data=output_tokens,
     )
-    return FileResponse("temp_audio.wav")
+    return FileResponse("new_audio.wav")
 
 
 if __name__ == "__main__":
