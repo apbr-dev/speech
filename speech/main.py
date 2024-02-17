@@ -1,26 +1,27 @@
-from fastapi import FastAPI, File, UploadFile, Security
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Security
 from fastapi.security import APIKeyHeader
 from fastapi.exceptions import HTTPException
-from transformers import SeamlessM4Tv2Model, AutoProcessor
-import torch
-import torchaudio
+from pydantic import BaseModel
 import uvicorn
-import scipy
 import os
+import json
+
+from openai import OpenAI
+from pytube import YouTube
 
 app = FastAPI()
-
-model = SeamlessM4Tv2Model.from_pretrained("facebook/seamless-m4t-v2-large")
-processor = AutoProcessor.from_pretrained("facebook/seamless-m4t-v2-large")
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
-model = model.to(device)
-
-SAMPLE_RATE = 16000
-
 api_key_header = APIKeyHeader(name="X-API-Key")
-
 api_key = os.environ.get("API_KEY")
+
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+client = OpenAI(api_key=OPENAI_API_KEY)
+
+
+class ReturnTranscript(BaseModel):
+    id: int
+    start: float
+    end: float
+    text: str
 
 
 def get_api_key(api_key_header: str = Security(api_key_header)) -> str:
@@ -32,30 +33,29 @@ def get_api_key(api_key_header: str = Security(api_key_header)) -> str:
     )
 
 
-@app.post("/translate", response_class=FileResponse)
+@app.get("/translate", response_model=list[ReturnTranscript])
 async def translate_audio(
-    api_key: str = Security(get_api_key), audio_file: UploadFile = File(...)
-) -> FileResponse:
-    # Save the uploaded audio file
-    with open("temp_audio.wav", "wb") as f:
-        f.write(await audio_file.read())
+    video_url: str,
+    api_key: str = Security(get_api_key),
+    test: bool = True,
+) -> list[ReturnTranscript]:
+    if test:
+        with open("test.json", "r") as f:
+            file = json.load(f)
+        return [ReturnTranscript(**x) for x in file]
 
-    waveform, sample_rate = torchaudio.load("temp_audio.wav")
-    if sample_rate != SAMPLE_RATE:
-        waveform = torchaudio.functional.resample(
-            waveform, orig_freq=sample_rate, new_freq=model.config.sampling_rate
-        )
-    audio_inputs = processor(audios=waveform, return_tensors="pt").to(device)
+    try:
+        yt = YouTube(video_url)
+        audio = yt.streams.filter(only_audio=True).first()
+        audio.download(filename="temp.mp4")
+    except:
+        raise HTTPException(status_code=404, detail=f"Cannot find with {video_url} url")
 
-    output_tokens = (
-        model.generate(**audio_inputs, tgt_lang="eng")[0].cpu().numpy().squeeze()
+    audio_file = open("temp.mp4", "rb")
+    transcript = client.audio.translations.create(
+        model="whisper-1", file=audio_file, response_format="verbose_json"
     )
-    scipy.io.wavfile.write(
-        "new_audio.wav",
-        rate=SAMPLE_RATE,
-        data=output_tokens,
-    )
-    return FileResponse("new_audio.wav")
+    return [ReturnTranscript(**x) for x in transcript.segments]
 
 
 if __name__ == "__main__":
