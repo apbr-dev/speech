@@ -17,8 +17,8 @@ app = FastAPI()
 api_key_header = APIKeyHeader(name="X-API-Key")
 api_key = os.environ.get("API_KEY")
 
-# OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-# client = OpenAI(api_key=OPENAI_API_KEY)
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 
 class ReturnTranscript(BaseModel):
