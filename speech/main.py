@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Security
 from fastapi.security import APIKeyHeader
+from fastapi.responses import FileResponse
 from fastapi.exceptions import HTTPException
 from pydantic import BaseModel
 import uvicorn
@@ -9,12 +10,15 @@ import json
 from openai import OpenAI
 from pytube import YouTube
 
+from webvtt import WebVTT, Caption
+from datetime import timedelta
+
 app = FastAPI()
 api_key_header = APIKeyHeader(name="X-API-Key")
 api_key = os.environ.get("API_KEY")
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-client = OpenAI(api_key=OPENAI_API_KEY)
+# OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+# client = OpenAI(api_key=OPENAI_API_KEY)
 
 
 class ReturnTranscript(BaseModel):
@@ -33,16 +37,30 @@ def get_api_key(api_key_header: str = Security(api_key_header)) -> str:
     )
 
 
-@app.get("/translate", response_model=list[ReturnTranscript])
+def generate_vtt(transcript: list[dict[str, str]]) -> WebVTT:
+    subtitles = WebVTT()
+    for s in transcript:
+        start = str(0) + str(timedelta(seconds=int(s["start"]))) + ".000"
+        end = str(0) + str(timedelta(seconds=int(s["end"]))) + ".000"
+        text = s["text"]
+        caption = Caption(start, end, text)
+        subtitles.captions.append(caption)
+    with open("temp.vtt", "w") as f:
+        subtitles.write(f)
+    return subtitles
+
+
+@app.get("/translate")
 async def translate_audio(
     video_url: str,
     api_key: str = Security(get_api_key),
     test: bool = True,
-) -> list[ReturnTranscript]:
+) -> FileResponse:
     if test:
         with open("test.json", "r") as f:
             file = json.load(f)
-        return [ReturnTranscript(**x) for x in file]
+        _ = generate_vtt(file)
+        return FileResponse("temp.vtt")
 
     try:
         yt = YouTube(video_url)
@@ -55,7 +73,8 @@ async def translate_audio(
     transcript = client.audio.translations.create(
         model="whisper-1", file=audio_file, response_format="verbose_json"
     )
-    return [ReturnTranscript(**x) for x in transcript.segments]
+    _ = generate_vtt(transcript)
+    return FileResponse("temp.vtt")
 
 
 if __name__ == "__main__":
