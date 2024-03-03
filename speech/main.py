@@ -2,6 +2,7 @@ from fastapi import FastAPI, Security
 from fastapi.security import APIKeyHeader
 from fastapi.responses import FileResponse
 from fastapi.exceptions import HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 import os
@@ -13,7 +14,16 @@ from pytube import YouTube
 from webvtt import WebVTT, Caption
 from datetime import timedelta
 
+
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+)
+
 api_key_header = APIKeyHeader(name="X-API-Key")
 api_key = os.environ.get("API_KEY")
 
