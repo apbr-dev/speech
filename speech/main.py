@@ -83,7 +83,7 @@ async def translate_audio(
     transcript = client.audio.translations.create(
         model="whisper-1", file=audio_file, response_format="verbose_json"
     )
-    _ = generate_vtt(transcript)
+    _ = generate_vtt(transcript.segments)
     return FileResponse("temp.vtt")
 
 
