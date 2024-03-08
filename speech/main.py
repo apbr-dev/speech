@@ -1,19 +1,22 @@
 from fastapi import FastAPI, Security
 from fastapi.security import APIKeyHeader
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.background import BackgroundTask
 from pydantic import BaseModel
 import uvicorn
 import os
 import json
+import shutil
 
-from openai import OpenAI
-from pytube import YouTube
 
-from webvtt import WebVTT, Caption
-from datetime import timedelta
-
+from speech.utils import (
+    generate_vtt,
+    download_video,
+    transcribe_audio,
+    subtitle_generator_stream,
+)
 
 app = FastAPI()
 
@@ -26,9 +29,6 @@ app.add_middleware(
 
 api_key_header = APIKeyHeader(name="X-API-Key")
 api_key = os.environ.get("API_KEY")
-
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-client = OpenAI(api_key=OPENAI_API_KEY)
 
 
 class ReturnTranscript(BaseModel):
@@ -47,19 +47,6 @@ def get_api_key(api_key_header: str = Security(api_key_header)) -> str:
     )
 
 
-def generate_vtt(transcript: list[dict[str, str]]) -> WebVTT:
-    subtitles = WebVTT()
-    for s in transcript:
-        start = str(0) + str(timedelta(seconds=int(s["start"]))) + ".000"
-        end = str(0) + str(timedelta(seconds=int(s["end"]))) + ".000"
-        text = s["text"]
-        caption = Caption(start, end, text)
-        subtitles.captions.append(caption)
-    with open("temp.vtt", "w") as f:
-        subtitles.write(f)
-    return subtitles
-
-
 @app.get("/translate")
 async def translate_audio(
     video_url: str,
@@ -69,23 +56,42 @@ async def translate_audio(
     if test:
         with open("test.json", "r") as f:
             file = json.load(f)
-        _ = generate_vtt(file)
+        generate_vtt(file, fid="temp", save=False)
         return FileResponse("temp.vtt")
-
     try:
-        yt = YouTube(video_url)
-        audio = yt.streams.filter(only_audio=True).first()
-        audio.download(filename="temp.mp4")
-    except:
+        fid = download_video(video_url)
+    except HTTPException:
         raise HTTPException(status_code=404, detail=f"Cannot find with {video_url} url")
 
-    audio_file = open("temp.mp4", "rb")
-    transcript = client.audio.translations.create(
-        model="whisper-1", file=audio_file, response_format="verbose_json"
+    transcript = transcribe_audio(filename=f"files/{fid}/audio.mp4")
+    generate_vtt(transcript.segments, fid=fid, save=True)
+    return FileResponse(
+        f"files/{fid}/subtitles.vtt",
+        background=BackgroundTask(shutil.rmtree, f"files/{fid}"),
     )
-    _ = generate_vtt(transcript.segments)
-    return FileResponse("temp.vtt")
+
+
+@app.get("/translate/stream")
+async def streaming_response(
+    video_url: str,
+    num_parts: int = 3,
+):
+    try:
+        fid = download_video(video_url)
+    except HTTPException:
+        raise HTTPException(status_code=404, detail=f"Cannot find with {video_url} url")
+
+    return StreamingResponse(
+        subtitle_generator_stream(fid=fid, num_parts=num_parts),
+        media_type="text/vtt",
+        background=BackgroundTask(shutil.rmtree, f"files/{fid}"),
+    )
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True if os.getenv("ENV") == "DEV" else False,
+    )

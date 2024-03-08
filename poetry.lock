@@ -824,6 +824,17 @@ files = [
 typing-extensions = ">=4.6.0,<4.7.0 || >4.7.0"
 
 [[package]]
+name = "pydub"
+version = "0.25.1"
+description = "Manipulate audio with an simple and easy high level interface"
+optional = false
+python-versions = "*"
+files = [
+    {file = "pydub-0.25.1-py2.py3-none-any.whl", hash = "sha256:65617e33033874b59d87db603aa1ed450633288aefead953b30bded59cb599a6"},
+    {file = "pydub-0.25.1.tar.gz", hash = "sha256:980a33ce9949cab2a569606b65674d748ecbca4f0796887fd6f46173a7b0d30f"},
+]
+
+[[package]]
 name = "python-multipart"
 version = "0.0.9"
 description = "A streaming multipart parser for Python"
@@ -1701,4 +1712,4 @@ docopt = "*"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "33f0fef5f3b7edc6f81ae60a7d1e51cd50962127b4bce33fe18f9dc31cfe3dec"
+content-hash = "08d68d7c627b17d11641414c5a5cd6570afc3e767ac31f20e8c459e01a052fee"
