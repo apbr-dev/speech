@@ -74,6 +74,7 @@ async def translate_audio(
 @app.get("/translate/stream")
 async def streaming_response(
     video_url: str,
+    api_key: str = Security(get_api_key),
     num_parts: int = 3,
 ):
     try:
