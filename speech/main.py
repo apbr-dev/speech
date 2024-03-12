@@ -11,7 +11,7 @@ import json
 import shutil
 
 
-from speech.utils import (
+from utils import (
     generate_vtt,
     download_video,
     transcribe_audio,

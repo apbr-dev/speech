@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  # Your Python application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      API_KEY: ${API_KEY}
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      - db
+    command: [ "poetry", "run", "python", "speech/main.py" ]
+
+  # PostgreSQL database
+  db:
+    image: postgres:latest
+    container_name: db
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
