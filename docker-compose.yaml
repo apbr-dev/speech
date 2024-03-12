@@ -12,6 +12,8 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "8000:8000"
     depends_on:
       - db
     command: [ "poetry", "run", "python", "speech/main.py" ]
